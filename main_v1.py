@@ -147,18 +147,6 @@ class Main:
 
         return last_message, last_photo_message, configurator_wait_input
 
-    def send_choice(self, user_id: int):  # Не искользуется
-        # ''' Отправить пользователю возможные зависимости графика'''
-        #
-        # ans = 'Выберите, какой график вы хотите построить?\n\n'
-        # # count = 1
-        # # for i in graphs_types:
-        # #     ans += f'{count}. {graphs_types[i]} (/graph\_{i}).\n'
-        # #     count += 1
-        #
-        # self.send_msg(ans, user_id, markdown=True)
-        pass
-
     def send_or_update(self, user_id):
         users = self.tg_users
 
@@ -198,8 +186,8 @@ class Main:
             if user_id not in users:
                 # Франение информации о каждом юзере
                 users[user_id] = {'state': -1,  # Статус пользвателя
-                                            'files': [],  # Все файлы, которые загрузил пользватель
-                                            }
+                                    'files': [],  # Все файлы, которые загрузил пользватель
+                                }
 
                 # Новый пользователь либо перезапуск бота
             if message.text in ["/start", "/help"] or users[user_id]['state'] == -1:
@@ -224,21 +212,25 @@ class Main:
                 if users_files['status'] == 0:
                     reply_msg.append("Пришлите свой первый файл :)")
                 else:
-                    reply_msg.append("Пришлите новый файл, или выберите файл из списка уже загруженных, или пришлите ссылку на файл:")
+                    reply_msg.append("Пришлите новый файл, выберите файл из списка уже загруженных, пришлите ссылку на файл или напишите /test, для загрузки тестовый данных (kiva_loans.csv):")
                     users[user_id]['files'] = users_files['data'].copy()
 
                 self.send_msg(reply_msg, user_id, users_files['keybord'])
 
             # Пользователь выбрал файл из имеющихся
-            if users[user_id]['state'] == 0 and (msg_mtm in users[user_id]['files'] or msg_mtm.count('.') >= 2):
+            if users[user_id]['state'] == 0 and (msg_mtm in users[user_id]['files'] or msg_mtm.count('.') >= 2 or msg_mtm=='/test'):
                 self.send_msg('Отличный выбор! :)\nПожалуйста, чуть подождите, идет загрузка...', user_id)
 
                 try:
-                    if msg_mtm not in users[user_id]['files']:
-                        #url = 'https://system-mobil.ru/link/kiva_loans.csv'
+                    if msg_mtm == '/test':
+                        cur_file = '/Users/alex/PycharmProjects/SkillBox/project_group_8/test_data/kiva_loans.csv'
+
+                    elif msg_mtm not in users[user_id]['files']:
                         url = msg_mtm
                         r = requests.get(url)
-                        cur_file = self.user_dir(user_id) + '/' + str(url.split('/')[-1])
+                        cur_file = self.user_dir(user_id) + str(url.split('/')[-1])
+
+                        # TODO Валидация файла!
                         with open(cur_file, 'wb') as f:
                             f.write(r.content)
                     else:
