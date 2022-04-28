@@ -1,11 +1,10 @@
 from GraphVisualizer import GraphVisualizer
 from DataFrameContainer import DataFrameContainer
-from Configurator import ConcreteConfigurator, BaseConfigurator
+from Configurator import ConcreteConfigurator
 
 # Инициализация бота
 import telebot, os, json
-from typing import Any
-from telebot.types import KeyboardButton, ReplyKeyboardRemove, InputMedia, InputMediaPhoto
+from telebot.types import KeyboardButton, ReplyKeyboardRemove, InputMediaPhoto
 
 token = '5226703033:AAEC2VNvrB9A7ZuRuEYwbflag3qNEKMeUtg'
 
@@ -42,15 +41,18 @@ class Main:
 
         return markup
 
+    def user_dir(self, user_id):
+        return f'{self.main_dir}{user_id}/'
+
     def get_users_files(self, user_id: int):
         ''' Получение списка файлов, загруженных пользователем '''
+        user_files_path = self.user_dir(user_id)
 
-        user_files_path = f'{self.main_dir}/{user_id}/'
         try:
             all_files = list(os.listdir(user_files_path))
             files = []
             for i in all_files:
-                if i[0] != '.':
+                if i[0] != '.' and i.count('.') == 1:
                     files.append(i)
 
             if len(files) == 0:
@@ -113,10 +115,8 @@ class Main:
                 data = df_container.make_pie_data(config)
                 figure = visualizer.make_pie_chart(data['y'], labels=data['x'], title=config['graph_title'], **config)
 
-            # TODO: настроить пути для каждого пользователя отдельно
-            ph = 'test_data/tmp/test.png'
-            figure.savefig(ph)
-            photo = ph
+            photo = self.user_dir(user_id) + 'tmp/cur_graph.png'
+            figure.savefig(photo)
 
         if photo is not None:
             with open(photo, 'rb') as img:
@@ -162,7 +162,7 @@ class Main:
     def send_or_update(self, user_id):
         users = self.tg_users
 
-        self.show_menu(
+        last_message, last_photo_message = self.show_menu(
             user_id,
             users[user_id]['configurator'],
             users[user_id]['df_container'],
@@ -170,6 +170,17 @@ class Main:
             users[user_id]['last_message'],
             users[user_id]['last_photo_message'],
         )
+        users[user_id]['last_message'] = last_message
+        users[user_id]['last_photo_message'] = last_photo_message
+
+    def new_graph(self, user_id):
+        users = self.tg_users
+
+        users[user_id]['configurator'].reset()
+
+        # TODO Удаление предыдущего сообщения с кнопками
+
+        self.send_or_update(user_id)
 
     def processing(self) -> None:
         ''' Обработка сообщений боту '''
@@ -185,18 +196,16 @@ class Main:
 
             if user_id not in users:
                 # Франение информации о каждом юзере
-                users[user_id]: str[Any] = {'state': -1,  # Статус пользвателя
+                users[user_id] = {'state': -1,  # Статус пользвателя
                                             'files': [],  # Все файлы, которые загрузил пользватель
-                                            'cur_file': '',
                                             }
 
                 # Новый пользователь либо перезапуск бота
             if message.text in ["/start", "/help"] or users[user_id]['state'] == -1:
-                users[user_id]['cur_file'] = ''  # Файл, с которым сейчас работает пользватель
                 users[user_id]['last_message'] = None
                 users[user_id]['last_photo_message'] = None
-                users[user_id]['df_container'] = DataFrameContainer('test_data/kiva_loans.csv')
-                users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
+                users[user_id]['df_container'] = None
+                users[user_id]['configurator'] = None
                 users[user_id]['visualizer'] = GraphVisualizer()
 
                 if users[user_id]['state'] == -1:
@@ -220,40 +229,16 @@ class Main:
 
             # Пользователь выбрал файл из имеющихся
             if users[user_id]['state'] == 0 and msg_mtm in users[user_id]['files']:
-                self.send_msg('Отличный выбор! :)', user_id)
+                self.send_msg('Отличный выбор! :)\nПожалуйста, чуть подождите, идет загрузка...', user_id)
 
-                users[user_id]['cur_file'] = self.main_dir + str(user_id) + '/' + str(msg_mtm)
+                cur_file = self.user_dir(user_id) + '/' + str(msg_mtm)
+                users[user_id]['df_container'] = DataFrameContainer(cur_file)
+                users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
+
                 users[user_id]['state'] = 1
 
                 self.send_or_update(user_id)
 
-            # Ожидание графика
-            if users[user_id]['state'] == 1 and '/graph_' in msg_mtm:
-                try:
-                    type_of_graph = msg_mtm.split('_')[-1]
-
-                    if type_of_graph not in graphs_types:
-                        raise Exception("Такого варианта нет.")
-
-                    dependency_name = graphs_types[type_of_graph]
-
-                    # Тут будет осуществлятся запрос построения графика
-                    #######
-                    src = '/content/tmp/1.jpg' if type_of_graph % 2 == 0 else '/content/tmp/2.jpg'
-                    # Тут будет осуществлятся запрос построения графика
-
-                    with open(src, 'rb') as img:
-                        if users[user_id]['last_grapf_msg_id'] == -1:  # TODO Убрать
-                            senden_msg = bot.send_photo(user_id, img, caption=dependency_name)
-                            users[user_id]['last_grapf_msg_id'] = senden_msg.message_id  # TODO Убрать
-                            self.send_msg('Чтобы вернуться к выбору файла перезапустите бот: /start', user_id)
-                        else:
-                            bot.edit_message_media(InputMediaPhoto(media=img, caption=dependency_name), chat_id=user_id,
-                                                   message_id=users[user_id]['last_grapf_msg_id'])  # TODO Убрать
-                    bot.delete_message(user_id, msg_id)
-
-                except Exception as err:
-                    self.send_msg('Ошибка при построении графика :(\n' + str(err), user_id)
 
         # Обработка команд (кнопок)
         @bot.callback_query_handler(func=lambda call: True)
@@ -280,23 +265,25 @@ class Main:
                     file_info = bot.get_file(message.document.file_id)
                     downloaded_file = bot.download_file(file_info.file_path)
 
-                    user_dic = self.main_dir + str(user_id) + '/'
+                    user_dic = self.user_dir(user_id)
                     try:
                         os.mkdir(user_dic)
                     except:
                         pass
 
-                    src = user_dic + message.document.file_name;
+                    src = user_dic + message.document.file_name
                     with open(src, 'wb') as new_file:
                         new_file.write(downloaded_file)
 
-                    # Тут будет проверка файла на валидность
+                    #  TODO Тут будет проверка файла на валидность
                     valide = True
-                    # Тут будет проверка файла на валидность
 
                     if valide:
                         self.send_msg('Успешно!', message.from_user.id)
-                        users[user_id]['cur_file'] = src
+                        cur_file = src
+                        users[user_id]['df_container'] = DataFrameContainer(cur_file)
+                        users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
+
                         users[user_id]['state'] = 1
 
                         self.send_or_update(user_id)
