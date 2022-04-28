@@ -644,6 +644,6 @@ class ConcreteConfigurator(BaseConfigurator):
                 current_agg_value = self.config.get('agg', None)
                 current_agg_value = 'mean' if current_agg_value is None else current_agg_value
 
-                self.config['agg'] = None if y_value == '$count_x_values' is None else current_agg_value
+                self.config['agg'] = None if y_value == '$count_x_values' else current_agg_value
 
         super().select(value)

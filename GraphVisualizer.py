@@ -3,6 +3,7 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 plt.style.use('seaborn-darkgrid')
 palette = plt.get_cmap('Set2')
 
