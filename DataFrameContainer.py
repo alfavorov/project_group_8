@@ -122,7 +122,7 @@ class DataFrameContainer:
                 df = df[mask].append(df[~mask].sum().rename(group_name))
             else:
                 total = df.sum()
-                mask = df / total >= 0.05
+                mask = df / total >= group_percent
                 other = df[~mask].sum()
                 df = df[mask]
                 df[group_name] = other
