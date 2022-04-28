@@ -115,7 +115,12 @@ class Main:
                 data = df_container.make_pie_data(config)
                 figure = visualizer.make_pie_chart(data['y'], labels=data['x'], title=config['graph_title'], **config)
 
-            photo = self.user_dir(user_id) + 'tmp/cur_graph.png'
+            my_dir = self.user_dir(user_id) + 'tmp/'
+
+            if not os.path.exists(my_dir):
+                os.makedirs(my_dir)
+
+            photo = my_dir + 'cur_graph.png'
             figure.savefig(photo)
 
         if photo is not None:
@@ -311,10 +316,13 @@ class Main:
 
     def run_bot(self) -> None:
         ''' Запусить бот '''
+        # дважды стартуешь бота?
         self.processing()
         self.tg_bot.polling(none_stop=True)
 
-        def th(): self.tg_bot.polling(none_stop=True)
+        # вот тут второй раз в отдельном потоке?
+        def th():
+            self.tg_bot.polling(none_stop=True)
 
         import threading
         my_thread = threading.Thread(target=th)
