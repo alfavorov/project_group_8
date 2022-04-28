@@ -115,6 +115,7 @@ class Main:
                 data = df_container.make_pie_data(config)
                 figure = visualizer.make_pie_chart(data['y'], labels=data['x'], title=config['graph_title'], **config)
 
+            # надо создавать tmp, если ее нет, иначе savefig не сохранит файл
             photo = self.user_dir(user_id) + 'tmp/cur_graph.png'
             figure.savefig(photo)
 
@@ -310,9 +311,11 @@ class Main:
 
     def run_bot(self) -> None:
         ''' Запусить бот '''
+        # дважды стартуешь бота?
         self.processing()
         self.tg_bot.polling(none_stop=True)
 
+        # вот тут второй раз в отдельном потоке?
         def th(): self.tg_bot.polling(none_stop=True)
 
         import threading
