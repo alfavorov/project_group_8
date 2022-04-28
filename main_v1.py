@@ -3,7 +3,7 @@ from DataFrameContainer import DataFrameContainer
 from Configurator import ConcreteConfigurator
 
 # Инициализация бота
-import telebot, os, json
+import telebot, os, json, requests
 from telebot.types import KeyboardButton, ReplyKeyboardRemove, InputMediaPhoto
 
 token = '5226703033:AAEC2VNvrB9A7ZuRuEYwbflag3qNEKMeUtg'
@@ -224,17 +224,26 @@ class Main:
                 if users_files['status'] == 0:
                     reply_msg.append("Пришлите свой первый файл :)")
                 else:
-                    reply_msg.append("Пришлите новый файл, или выберите файл из списка уже загруженных:")
+                    reply_msg.append("Пришлите новый файл, или выберите файл из списка уже загруженных, или пришлите ссылку на файл:")
                     users[user_id]['files'] = users_files['data'].copy()
 
                 self.send_msg(reply_msg, user_id, users_files['keybord'])
 
             # Пользователь выбрал файл из имеющихся
-            if users[user_id]['state'] == 0 and msg_mtm in users[user_id]['files']:
+            if users[user_id]['state'] == 0 and (msg_mtm in users[user_id]['files'] or msg_mtm.count('.') >= 2):
                 self.send_msg('Отличный выбор! :)\nПожалуйста, чуть подождите, идет загрузка...', user_id)
 
                 try:
-                    cur_file = self.user_dir(user_id) + '/' + str(msg_mtm)
+                    if msg_mtm not in users[user_id]['files']:
+                        #url = 'https://system-mobil.ru/link/kiva_loans.csv'
+                        url = msg_mtm
+                        r = requests.get(url)
+                        cur_file = self.user_dir(user_id) + '/' + str(url.split('/')[-1])
+                        with open(cur_file, 'wb') as f:
+                            f.write(r.content)
+                    else:
+                        cur_file = self.user_dir(user_id) + '/' + str(msg_mtm)
+
                     users[user_id]['df_container'] = DataFrameContainer(cur_file)
                     users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
 
@@ -302,8 +311,8 @@ class Main:
                     else:
                         os.remove(src)
                         self.send_msg('К сожалению файл не валиден... Попробуйте снова.', message.from_user.id)
-                except:
-                    self.send_msg('Ошибка загрузки :(', message.from_user.id)
+                except Exception as err:
+                    self.send_msg(f'Ошибка загрузки :(\nОшибка: {err}', message.from_user.id)
             else:
                 self.send_msg('Если вы хотите отправить новый файл, вернитесь к этапу выбора файла: /start',
                               message.from_user.id)
