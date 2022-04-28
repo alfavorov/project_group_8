@@ -141,11 +141,11 @@ class Main:
         else:
             last_message = bot.send_message(user_id, text, reply_markup=reply_markup)
 
+        configurator_wait_input = False
         if current_menu_page.get('type', None) in ['int', 'float', 'str']:
-            global configurator_wait_input
             configurator_wait_input = True
 
-        return last_message, last_photo_message
+        return last_message, last_photo_message, configurator_wait_input
 
     def send_choice(self, user_id: int):  # Не искользуется
         # ''' Отправить пользователю возможные зависимости графика'''
@@ -162,7 +162,7 @@ class Main:
     def send_or_update(self, user_id):
         users = self.tg_users
 
-        last_message, last_photo_message = self.show_menu(
+        last_message, last_photo_message, waiting_for_input = self.show_menu(
             user_id,
             users[user_id]['configurator'],
             users[user_id]['df_container'],
@@ -172,6 +172,7 @@ class Main:
         )
         users[user_id]['last_message'] = last_message
         users[user_id]['last_photo_message'] = last_photo_message
+        users[user_id]['waiting_for_input'] = waiting_for_input
 
     def new_graph(self, user_id):
         users = self.tg_users
@@ -207,6 +208,7 @@ class Main:
                 users[user_id]['df_container'] = None
                 users[user_id]['configurator'] = None
                 users[user_id]['visualizer'] = GraphVisualizer()
+                users[user_id]['waiting_for_input'] = False
 
                 if users[user_id]['state'] == -1:
                     reply_msg = ["Добрый день!",
@@ -231,13 +233,23 @@ class Main:
             if users[user_id]['state'] == 0 and msg_mtm in users[user_id]['files']:
                 self.send_msg('Отличный выбор! :)\nПожалуйста, чуть подождите, идет загрузка...', user_id)
 
-                cur_file = self.user_dir(user_id) + '/' + str(msg_mtm)
-                users[user_id]['df_container'] = DataFrameContainer(cur_file)
-                users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
+                try:
+                    cur_file = self.user_dir(user_id) + '/' + str(msg_mtm)
+                    users[user_id]['df_container'] = DataFrameContainer(cur_file)
+                    users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
 
-                users[user_id]['state'] = 1
+                    users[user_id]['state'] = 1
 
+                    self.send_or_update(user_id)
+                except Exception as err:
+                    self.send_msg(f'Не удалось загрузить файл... Пожалуйста, попробуйте ещё раз: /start\n\nОшибка: {err}', user_id)
+
+
+            if users[user_id]['waiting_for_input'] == True:
+                users[user_id]['configurator'].update_menu_state(message.text)
+                users[user_id]['waiting_for_input'] = False
                 self.send_or_update(user_id)
+                bot.delete_message(user_id, msg_id)
 
 
         # Обработка команд (кнопок)
