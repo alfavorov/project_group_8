@@ -154,18 +154,28 @@ class Main:
 
     def send_or_update(self, user_id):
         users = self.tg_users
+        bot = self.tg_bot
 
-        last_message, last_photo_message, waiting_for_input = self.show_menu(
-            user_id,
-            users[user_id]['configurator'],
-            users[user_id]['df_container'],
-            users[user_id]['visualizer'],
-            users[user_id]['last_message'],
-            users[user_id]['last_photo_message'],
-        )
-        users[user_id]['last_message'] = last_message
-        users[user_id]['last_photo_message'] = last_photo_message
-        users[user_id]['waiting_for_input'] = waiting_for_input
+        try:
+            last_message, last_photo_message, waiting_for_input = self.show_menu(
+                user_id,
+                users[user_id]['configurator'],
+                users[user_id]['df_container'],
+                users[user_id]['visualizer'],
+                users[user_id]['last_message'],
+                users[user_id]['last_photo_message'],
+            )
+            users[user_id]['last_message'] = last_message
+            users[user_id]['last_photo_message'] = last_photo_message
+            users[user_id]['waiting_for_input'] = waiting_for_input
+        except Exception as err:
+            pass
+            # if users[user_id]['last_message'] is not None:
+            #     bot.edit_message_text(text, user_id, users[user_id]['last_message'].message_id)
+            # else:
+            #     users[user_id]['last_message'] = bot.send_message(user_id, text, reply_markup=reply_markup)
+
+
 
     def new_graph(self, user_id):
         users = self.tg_users
@@ -196,6 +206,9 @@ class Main:
 
                 # Новый пользователь либо перезапуск бота
             if message.text in ["/start", "/help"] or users[user_id]['state'] == -1:
+                if 'last_message' in users[user_id] and users[user_id]['last_message'] is not None:
+                    bot.delete_message(user_id, users[user_id]['last_message'].message_id)
+
                 users[user_id]['last_message'] = None
                 users[user_id]['last_photo_message'] = None
                 users[user_id]['df_container'] = None
@@ -211,6 +224,7 @@ class Main:
                 reply_msg += ["Вы можете загрузите свои данные или воспользоваться уже имеющимися.", '', ]
 
                 users[user_id]['state'] = 0
+
 
                 users_files = self.get_users_files(user_id)
 
@@ -271,15 +285,18 @@ class Main:
         # Обработка команд (кнопок)
         @bot.callback_query_handler(func=lambda call: True)
         def get_callback(call):
+            user_id = call.from_user.id
             try:
-                user_id = call.from_user.id
                 selected_data = json.loads(call.data)
 
                 users[user_id]['configurator'].update_menu_state(selected_data['value'], selected_data['command'])
+                bot.edit_message_text(users[user_id]['last_message'].text + ' обработка...', user_id,
+                                      users[user_id]['last_message'].message_id)
 
                 self.send_or_update(user_id)
             except Exception as err:
-                print('Error: ', str(err))
+                pass
+                #bot.edit_message_text(users[user_id]['last_message'].text + '123', user_id, users[user_id]['last_message'].message_id)
 
         # Обработка присланных файлов
         @bot.message_handler(content_types=['document'])
@@ -329,7 +346,7 @@ class Main:
         ''' Запусить бот '''
         # дважды стартуешь бота?
         self.processing()
-        self.tg_bot.polling(none_stop=True)
+        # self.tg_bot.polling(none_stop=True)
 
         # вот тут второй раз в отдельном потоке?
         def th():
