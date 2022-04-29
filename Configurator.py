@@ -599,7 +599,7 @@ class ConcreteConfigurator(BaseConfigurator):
             'y': '$count_x_values',
             'agg': 'sum',
             'graph_title': None,
-            'pie_group_percent': None,
+            'pie_group_percent': 0.015,
             'pie_group_name': None
         }
 
