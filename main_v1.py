@@ -235,9 +235,19 @@ class Main:
                         r = requests.get(url)
                         cur_file = self.user_dir(user_id) + str(url.split('/')[-1])
 
-                        # TODO Валидация файла!
+                        # Валидация файла
                         with open(cur_file, 'wb') as f:
                             f.write(r.content)
+
+                        valid = DataFrameContainer.validate_csv(cur_file)
+                        if valid:
+                            self.send_msg('Данные загружены!', message.from_user.id)
+                        else:
+                            os.remove(cur_file)
+                            self.send_msg('К сожалению файл не валиден... Попробуйте снова.', message.from_user.id)
+
+
+
                     else:
                         cur_file = self.user_dir(user_id) + '/' + str(msg_mtm)
 
@@ -293,8 +303,9 @@ class Main:
                     with open(src, 'wb') as new_file:
                         new_file.write(downloaded_file)
 
-                    #  TODO Тут будет проверка файла на валидность
-                    valide = True
+                    #  Проверка файла на валидность
+
+                    valide = DataFrameContainer.validate_csv(src)
 
                     if valide:
                         self.send_msg('Успешно!', message.from_user.id)

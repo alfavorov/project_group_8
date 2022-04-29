@@ -144,7 +144,7 @@ class ConcreteConfigurator(BaseConfigurator):
         return {
             'items': {
                 'root': {
-                    'title': 'Тип графика',
+                    'title': 'Выберите тип графика',
                     'type': 'category',
                     'items': {
                         'bar': self.make_bar_menu_structure(),
