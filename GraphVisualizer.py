@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 plt.style.use('seaborn-darkgrid')
+plt.switch_backend('agg')
 palette = plt.get_cmap('Set2')
 
 from typing import List, Optional, Tuple, Union
