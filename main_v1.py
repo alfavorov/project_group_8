@@ -6,7 +6,7 @@ from Configurator import ConcreteConfigurator
 import telebot, os, json, requests
 from telebot.types import KeyboardButton, ReplyKeyboardRemove, InputMediaPhoto
 
-token = '5226703033:AAEC2VNvrB9A7ZuRuEYwbflag3qNEKMeUtg'
+token = '5166438967:AAEEMF9W103m5bz9T-3uqHdV5LK4RxKv3oI'
 
 
 class Main:
@@ -37,7 +37,7 @@ class Main:
                 row = [row]
 
             buttons = list(filter(bool, [self.generate_button(key, items[key]) for key in row]))
-            markup.row(*buttons)
+            markup.row(*buttons, )
 
         return markup
 
@@ -83,45 +83,30 @@ class Main:
         if type(data) != str:
             data = '\n'.join(data)
 
-        self.tg_bot.send_message(user_id,
+        return self.tg_bot.send_message(user_id,
                                  data,
                                  reply_markup=keybord or ReplyKeyboardRemove(),
                                  parse_mode='Markdown' if markdown else None,
                                  )
 
-    def show_menu(self, user_id, configurator, df_container, visualizer, last_message=None, last_photo_message=None):
+    def show_menu(self, user_id):
         bot = self.tg_bot
 
+        users = self.tg_users
+        configurator = users[user_id]['configurator']
+        last_message = users[user_id]['last_message']
+        last_photo_message = users[user_id]['last_photo_message']
         current_menu_page = configurator.current_menu_page
-        text = current_menu_page['title'] + ':'
+        text = current_menu_page['title']
         photo = None
         reply_markup = self.generate_buttons(current_menu_page.get('items', []), current_menu_page.get('layout', []))
 
+        if users[user_id].get('loading_message', None) is not None:
+            bot.delete_message(user_id, users[user_id]['loading_message'].message_id)
+            users[user_id]['loading_message'] = None
+
         if current_menu_page.get('show_graph', None) is not None:
-            config = configurator.config
-            data = None
-            figure = None
-
-            if config['graph_type'] == 'bar':
-                data = df_container.make_bar_data(config)
-                figure = visualizer.make_bar_plot(data, title=config['graph_title'], **config)
-            elif config['graph_type'] == 'scatter':
-                data = df_container.make_scatter_data(config)
-                figure = visualizer.make_scatter_plot(data, title=config['graph_title'], **config)
-            elif config['graph_type'] == 'hist':
-                data = df_container.make_hist_data(config)
-                figure = visualizer.make_hist_plot(data, title=config['graph_title'], **config)
-            elif config['graph_type'] == 'pie':
-                data = df_container.make_pie_data(config)
-                figure = visualizer.make_pie_chart(data['y'], labels=data['x'], title=config['graph_title'], **config)
-
-            my_dir = self.user_dir(user_id) + 'tmp/'
-
-            if not os.path.exists(my_dir):
-                os.makedirs(my_dir)
-
-            photo = my_dir + 'cur_graph.png'
-            figure.savefig(photo)
+            photo = self.make_graph_photo(user_id)
 
         if photo is not None:
             with open(photo, 'rb') as img:
@@ -150,39 +135,108 @@ class Main:
         if current_menu_page.get('type', None) in ['int', 'float', 'str']:
             configurator_wait_input = True
 
-        return last_message, last_photo_message, configurator_wait_input
+        users[user_id]['last_message'] = last_message
+        users[user_id]['last_photo_message'] = last_photo_message
+        users[user_id]['waiting_for_input'] = configurator_wait_input
+
+    def make_graph_photo(self, user_id):
+        data = None
+        figure = None
+        photo = None
+        users = self.tg_users
+        config = users[user_id]['configurator'].config
+        df_container = users[user_id]['df_container']
+        visualizer = users[user_id]['visualizer']
+
+        if config['graph_type'] == 'bar':
+            data = df_container.make_bar_data(config)
+            figure = visualizer.make_bar_plot(data, title=config['graph_title'], **config)
+        elif config['graph_type'] == 'scatter':
+            data = df_container.make_scatter_data(config)
+            figure = visualizer.make_scatter_plot(data, title=config['graph_title'], **config)
+        elif config['graph_type'] == 'hist':
+            data = df_container.make_hist_data(config)
+            figure = visualizer.make_hist_plot(data, title=config['graph_title'], **config)
+        elif config['graph_type'] == 'pie':
+            data = df_container.make_pie_data(config)
+            figure = visualizer.make_pie_chart(data['y'], labels=data['x'], title=config['graph_title'], **config)
+
+        my_dir = self.user_dir(user_id) + 'tmp/'
+
+        if not os.path.exists(my_dir):
+            os.makedirs(my_dir)
+
+        photo = my_dir + 'cur_graph.png'
+        figure.savefig(photo)
+
+        return photo
 
     def send_or_update(self, user_id):
         users = self.tg_users
         bot = self.tg_bot
 
         try:
-            last_message, last_photo_message, waiting_for_input = self.show_menu(
-                user_id,
-                users[user_id]['configurator'],
-                users[user_id]['df_container'],
-                users[user_id]['visualizer'],
-                users[user_id]['last_message'],
-                users[user_id]['last_photo_message'],
-            )
-            users[user_id]['last_message'] = last_message
-            users[user_id]['last_photo_message'] = last_photo_message
-            users[user_id]['waiting_for_input'] = waiting_for_input
+            self.show_menu(user_id)
         except Exception as err:
-            pass
-            # if users[user_id]['last_message'] is not None:
-            #     bot.edit_message_text(text, user_id, users[user_id]['last_message'].message_id)
-            # else:
-            #     users[user_id]['last_message'] = bot.send_message(user_id, text, reply_markup=reply_markup)
+            print(err)
+            error_text = 'Что-то пошло не так, попробуйте снова'
+            if users[user_id]['last_photo_message']:
+                bot.delete_message(user_id, users[user_id]['last_photo_message'].message_id)
+            if users[user_id]['last_message']:
+                bot.edit_message_text(error_text, user_id, users[user_id]['last_message'].message_id)
+            else:
+                users[user_id]['last_message'] = bot.send_message(user_id, error_text)
+
+            users[user_id]['last_message'] = None
+            users[user_id]['last_photo_message'] = None
+            users[user_id]['configurator'].go_back()
+            self.show_menu(user_id)
+
+    def start(self, user_id):
+        bot = self.tg_bot
+        users = self.tg_users
+
+        if 'last_message' in users[user_id] and users[user_id]['last_message'] is not None:
+            bot.delete_message(user_id, users[user_id]['last_message'].message_id)
+
+        users[user_id]['last_message'] = None
+        users[user_id]['last_photo_message'] = None
+        users[user_id]['configurator'] = None
+        users[user_id]['df_container'] = None
+        users[user_id]['visualizer'] = GraphVisualizer()
+        users[user_id]['waiting_for_input'] = False
+
+        if users[user_id]['state'] == -1:
+            reply_msg = ["Добрый день!",
+                            "Я бот-строитель, помогу вам создать графики опираясь на нужные данные.", ]
+        else:
+            reply_msg = ["Спасибо, что вы ещё с нами :)", ]
+        reply_msg += ["Вы можете загрузите свои данные или воспользоваться уже имеющимися.", '', ]
+
+        users[user_id]['state'] = 0
 
 
+        users_files = self.get_users_files(user_id)
 
-    def new_graph(self, user_id):
+        if users_files['status'] == 0:
+            reply_msg.append("Пришлите свой первый файл :)")
+        else:
+            reply_msg.append("Пришлите новый файл, выберите файл из списка уже загруженных, пришлите ссылку на файл или напишите /test, для загрузки тестовый данных (kiva_loans.csv):")
+            users[user_id]['files'] = users_files['data'].copy()
+
+        self.send_msg(reply_msg, user_id, users_files['keybord'])
+
+    def next_graph(self, user_id):
+        bot = self.tg_bot
         users = self.tg_users
 
         users[user_id]['configurator'].reset()
 
-        # TODO Удаление предыдущего сообщения с кнопками
+        if users[user_id]['last_message']:
+            bot.delete_message(user_id, users[user_id]['last_message'].message_id)
+            users[user_id]['last_message'] = None
+        # чтобы не удалился готовый график
+        users[user_id]['last_photo_message'] = None
 
         self.send_or_update(user_id)
 
@@ -206,39 +260,12 @@ class Main:
 
                 # Новый пользователь либо перезапуск бота
             if message.text in ["/start", "/help"] or users[user_id]['state'] == -1:
-                if 'last_message' in users[user_id] and users[user_id]['last_message'] is not None:
-                    bot.delete_message(user_id, users[user_id]['last_message'].message_id)
-
-                users[user_id]['last_message'] = None
-                users[user_id]['last_photo_message'] = None
-                users[user_id]['df_container'] = None
-                users[user_id]['configurator'] = None
-                users[user_id]['visualizer'] = GraphVisualizer()
-                users[user_id]['waiting_for_input'] = False
-
-                if users[user_id]['state'] == -1:
-                    reply_msg = ["Добрый день!",
-                                 "Я бот-строитель, помогу вам создать графики опираясь на нужные данные.", ]
-                else:
-                    reply_msg = ["Спасибо, что вы ещё с нами :)", ]
-                reply_msg += ["Вы можете загрузите свои данные или воспользоваться уже имеющимися.", '', ]
-
-                users[user_id]['state'] = 0
-
-
-                users_files = self.get_users_files(user_id)
-
-                if users_files['status'] == 0:
-                    reply_msg.append("Пришлите свой первый файл :)")
-                else:
-                    reply_msg.append("Пришлите новый файл, выберите файл из списка уже загруженных, пришлите ссылку на файл или напишите /test, для загрузки тестовый данных (kiva_loans.csv):")
-                    users[user_id]['files'] = users_files['data'].copy()
-
-                self.send_msg(reply_msg, user_id, users_files['keybord'])
+                # Старт. Выбор файла
+                self.start(user_id)
 
             # Пользователь выбрал файл из имеющихся
             if users[user_id]['state'] == 0 and (msg_mtm in users[user_id]['files'] or msg_mtm.count('.') >= 2 or msg_mtm=='/test'):
-                self.send_msg('Отличный выбор! :)\nПожалуйста, чуть подождите, идет загрузка...', user_id)
+                users[user_id]['loading_message'] = self.send_msg('Отличный выбор! :)\nПожалуйста, чуть подождите, идет загрузка...', user_id)
 
                 try:
                     if msg_mtm == '/test':
@@ -267,6 +294,7 @@ class Main:
 
                     users[user_id]['df_container'] = DataFrameContainer(cur_file)
                     users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
+                    users[user_id]['configurator'].set_file_name(msg_mtm)
 
                     users[user_id]['state'] = 1
 
@@ -289,12 +317,19 @@ class Main:
             try:
                 selected_data = json.loads(call.data)
 
-                users[user_id]['configurator'].update_menu_state(selected_data['value'], selected_data['command'])
-                bot.edit_message_text(users[user_id]['last_message'].text + ' обработка...', user_id,
-                                      users[user_id]['last_message'].message_id)
+                is_done, command = users[user_id]['configurator'].update_menu_state(selected_data['value'], selected_data['command'])
 
-                self.send_or_update(user_id)
+                if is_done:
+                    self.next_graph(user_id)
+                elif command == 'change_file':
+                    self.start(user_id)
+                else:
+                    bot.edit_message_text(users[user_id]['last_message'].text + ' обработка...', user_id,
+                                          users[user_id]['last_message'].message_id)
+                    self.send_or_update(user_id)
+ 
             except Exception as err:
+                print(err)
                 pass
                 #bot.edit_message_text(users[user_id]['last_message'].text + '123', user_id, users[user_id]['last_message'].message_id)
 
@@ -316,7 +351,8 @@ class Main:
                     except:
                         pass
 
-                    src = user_dic + message.document.file_name
+                    file_name = message.document.file_name
+                    src = user_dic + file_name
                     with open(src, 'wb') as new_file:
                         new_file.write(downloaded_file)
 
@@ -329,6 +365,7 @@ class Main:
                         cur_file = src
                         users[user_id]['df_container'] = DataFrameContainer(cur_file)
                         users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
+                        users[user_id]['configurator'].set_file_name(file_name)
 
                         users[user_id]['state'] = 1
 
