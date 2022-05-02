@@ -3,13 +3,15 @@ from DataFrameContainer import DataFrameContainer
 from Configurator import ConcreteConfigurator
 
 # Инициализация бота
-import telebot, os, json, requests
+import telebot, os, json, requests, datetime
 from telebot.types import KeyboardButton, ReplyKeyboardRemove, InputMediaPhoto
 
 from tg_token import token
 
 
+
 class Main:
+
     def __init__(self, token: str) -> None:
         self.tg_token = token
         self.tg_bot = telebot.TeleBot(token)
@@ -18,8 +20,14 @@ class Main:
 
         try:
             os.mkdir(self.main_dir)
-        except:
-            pass
+        except Exception as err:
+            self.log_w(None, '__init__',  err)
+
+    def log_w(self, user_id, function, txt: str):
+        msg = f'{str(datetime.datetime.now())}, {function}, {user_id}: {txt}\n'
+        with open('log.txt', 'a') as f:
+            f.write(msg)
+
 
     def generate_button(self, value, data):
         if data is None: return
@@ -61,10 +69,9 @@ class Main:
                 return {'keybord': self.get_keybord(files),
                         'data': files,
                         'status': 1}
-        except:
+        except Exception as err:
             return {'status': 0,
                     'keybord': None}
-            # return {'msg': 'Вы ещё не загружали файлы, пожалуйста, загрузите новый.'}
 
     def get_keybord(self, my_list):
         ''' Клавиатура с произвольными данными'''
@@ -115,8 +122,8 @@ class Main:
                     try:
                         bot.edit_message_media(telebot.types.InputMediaPhoto(img), user_id,
                                                last_photo_message.message_id)
-                    except:
-                        pass
+                    except Exception as err:
+                        self.log_w(user_id, 'show_menu', err)
                 else:
                     if last_message:
                         bot.delete_message(user_id, last_message.message_id)
@@ -178,8 +185,8 @@ class Main:
         try:
             self.show_menu(user_id)
         except Exception as err:
-            print(err)
-            error_text = 'Что-то пошло не так, попробуйте снова'
+            self.log_w(user_id, 'send_or_update', err)
+            error_text = 'Что-то пошло не так, попробуйте снова.'
             if users[user_id]['last_photo_message']:
                 bot.delete_message(user_id, users[user_id]['last_photo_message'].message_id)
             if users[user_id]['last_message']:
@@ -300,7 +307,8 @@ class Main:
 
                     self.send_or_update(user_id)
                 except Exception as err:
-                    self.send_msg(f'Не удалось загрузить файл... Пожалуйста, попробуйте ещё раз: /start\n\nОшибка: {err}', user_id)
+                    self.send_msg(f'Не удалось загрузить файл... Пожалуйста, попробуйте ещё раз: /start', user_id)
+                    self.log_w(user_id, 'get_text_messages', err)
 
 
             if users[user_id]['waiting_for_input'] == True:
@@ -329,9 +337,7 @@ class Main:
                     self.send_or_update(user_id)
  
             except Exception as err:
-                print(err)
-                pass
-                #bot.edit_message_text(users[user_id]['last_message'].text + '123', user_id, users[user_id]['last_message'].message_id)
+                self.log_w(user_id, 'get_callback', err)
 
         # Обработка присланных файлов
         @bot.message_handler(content_types=['document'])
@@ -348,8 +354,8 @@ class Main:
                     user_dic = self.user_dir(user_id)
                     try:
                         os.mkdir(user_dic)
-                    except:
-                        pass
+                    except Exception as err:
+                        self.log_w(user_id, 'handle_docs', err)
 
                     file_name = message.document.file_name
                     src = user_dic + file_name
@@ -374,7 +380,8 @@ class Main:
                         os.remove(src)
                         self.send_msg('К сожалению файл не валиден... Попробуйте снова.', message.from_user.id)
                 except Exception as err:
-                    self.send_msg(f'Ошибка загрузки :(\nОшибка: {err}', message.from_user.id)
+                    self.send_msg(f'Ошибка загрузки :(', message.from_user.id)
+                    self.log_w(message.from_user.id, 'handle_docs', err)
             else:
                 self.send_msg('Если вы хотите отправить новый файл, вернитесь к этапу выбора файла: /start',
                               message.from_user.id)
@@ -396,4 +403,7 @@ class Main:
 
 if __name__ == '__main__':
     interface = Main(token)
+
+    interface.log_w(111, '323232323')
+
     interface.run_bot()
