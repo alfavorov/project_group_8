@@ -6,7 +6,7 @@ from Configurator import ConcreteConfigurator
 import telebot, os, json, requests
 from telebot.types import KeyboardButton, ReplyKeyboardRemove, InputMediaPhoto
 
-token = '5166438967:AAEEMF9W103m5bz9T-3uqHdV5LK4RxKv3oI'
+from tg_token import token
 
 
 class Main:
@@ -97,7 +97,7 @@ class Main:
         last_message = users[user_id]['last_message']
         last_photo_message = users[user_id]['last_photo_message']
         current_menu_page = configurator.current_menu_page
-        text = current_menu_page['title']
+        text = current_menu_page['title'] + ';'
         photo = None
         reply_markup = self.generate_buttons(current_menu_page.get('items', []), current_menu_page.get('layout', []))
 
