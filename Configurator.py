@@ -5,6 +5,10 @@ class BaseConfigurator:
 
     def reset(self):
         self.config = dict()
+        self.soft_reset()
+
+    def soft_reset(self):
+        self.is_done = False
         self.menu_history = ['root']
         self.current_menu_page = None
         self.update_menu_structure()
@@ -22,7 +26,7 @@ class BaseConfigurator:
     def update_menu_state(self, value, command=None):
         if command is not None:
             self.call_command(command)
-            return
+            return self.is_done, command
 
         page_type = self.current_menu_page.get('type', None)
 
@@ -38,11 +42,18 @@ class BaseConfigurator:
         elif page_type == 'str':
             self.set_str(value)
 
+        return self.is_done, command
+
     def call_command(self, command):
         if command == 'back':
             self.go_back()
         elif command == 'reset':
             self.reset()
+        elif command == 'finish':
+            self.finish()
+
+    def finish(self):
+        self.is_done = True
 
     def select(self, value):
         current_item = self.menu_history[-1]
@@ -121,6 +132,14 @@ class BaseConfigurator:
 
 
 class ConcreteConfigurator(BaseConfigurator):
+    def __init__(self, *args, **kwargs):
+        self.file_name = None
+        super().__init__(*args, **kwargs)
+
+    def set_file_name(self, file_name):
+        self.file_name = file_name
+        self.update_menu_structure()
+
     def update_menu_state(self, value, command=None):
         current_menu_page_id = self.menu_history[-1]
         current_menu_page_type = self.current_menu_page.get('type', None)
@@ -128,7 +147,7 @@ class ConcreteConfigurator(BaseConfigurator):
         if current_menu_page_type == 'category' and current_menu_page_id == 'root':
             self.config = self.make_default_config(value)
 
-        super().update_menu_state(value, command)
+        return super().update_menu_state(value, command)
 
     def make_default_config(self, graph_type):
         if graph_type == 'bar':
@@ -144,17 +163,19 @@ class ConcreteConfigurator(BaseConfigurator):
         return {
             'items': {
                 'root': {
-                    'title': 'Выберите тип графика',
+                    'title': f'Файл: {self.file_name}\nВыберите тип графика',
                     'type': 'category',
                     'items': {
                         'bar': self.make_bar_menu_structure(),
                         'hist': self.make_hist_menu_structure(),
                         'scatter': self.make_scatter_menu_structure(),
-                        'pie': self.make_pie_menu_structure()
+                        'pie': self.make_pie_menu_structure(),
+                        'change_file': {'title': 'Сменить рабочий файл', 'command': 'change_file'}
                     },
                     'layout': [
                         ['bar', 'scatter'],
-                        ['hist', 'pie']
+                        ['hist', 'pie'],
+                        ['change_file']
                     ]
                 }
             }
@@ -186,7 +207,7 @@ class ConcreteConfigurator(BaseConfigurator):
         is_current_page = self.menu_history[-1] == 'bar_submenu'
         structure = {
             'type': 'category',
-            'title': 'Настройки столбчатой диаграммы' if is_current_page else 'Далее',
+            'title': 'Дополнительно' if is_current_page else 'Далее',
             'items': {
                 'sort_by': self.make_sort_by_menu_structure(),
                 'sort_type': self.make_sort_type_menu_structure(),
@@ -196,7 +217,8 @@ class ConcreteConfigurator(BaseConfigurator):
                                                               'Заголовок графика'),
                 'xlabel': self.make_input_menu_structure('str', 'xlabel', 'Подпись оси X', 'Введите подпись для оси X'),
                 'ylabel': self.make_input_menu_structure('str', 'ylabel', 'Подпись оси Y', 'Введите подпись для оси Y'),
-                'back': {'title': 'Назад', 'command': 'back'}
+                'back': {'title': 'Назад', 'command': 'back'},
+                'finish': {'title': 'Готово', 'command': 'finish'}
             },
             'layout': [
                 ['sort_by'],
@@ -205,7 +227,8 @@ class ConcreteConfigurator(BaseConfigurator):
                 ['graph_title'],
                 ['xlabel'],
                 ['ylabel'],
-                ['back']
+                ['back'],
+                ['finish']
             ],
             'show_graph': True
         }
@@ -234,7 +257,7 @@ class ConcreteConfigurator(BaseConfigurator):
         is_current_page = self.menu_history[-1] == 'scatter_submenu'
         structure = {
             'type': 'category',
-            'title': 'Настройки точечной диаграммы' if is_current_page else 'Далее',
+            'title': 'Дополнительно' if is_current_page else 'Далее',
             'items': {
                 'alpha': self.make_input_menu_structure('float', 'alpha', 'Введите дробное число от 0 до 1',
                                                         'Прозрачность точек'),
@@ -242,14 +265,16 @@ class ConcreteConfigurator(BaseConfigurator):
                                                               'Заголовок графика'),
                 'xlabel': self.make_input_menu_structure('str', 'xlabel', 'Подпись оси X', 'Введите подпись для оси X'),
                 'ylabel': self.make_input_menu_structure('str', 'ylabel', 'Подпись оси Y', 'Введите подпись для оси Y'),
-                'back': {'title': 'Назад', 'command': 'back'}
+                'back': {'title': 'Назад', 'command': 'back'},
+                'finish': {'title': 'Готово', 'command': 'finish'}
             },
             'layout': [
                 ['alpha'],
                 ['graph_title'],
                 ['xlabel'],
                 ['ylabel'],
-                ['back']
+                ['back'],
+                ['finish']
             ],
             'show_graph': True
         }
@@ -277,7 +302,7 @@ class ConcreteConfigurator(BaseConfigurator):
         is_current_page = self.menu_history[-1] == 'hist_submenu'
         structure = {
             'type': 'category',
-            'title': 'Настройки гистограммы' if is_current_page else 'Далее',
+            'title': 'Дополнительно' if is_current_page else 'Далее',
             'items': {
                 'bins': self.make_input_menu_structure('int', 'bins', 'Количество столбцов', 'Введите целое число'),
                 'discrete': self.make_discrete_menu_structure(),
@@ -285,14 +310,16 @@ class ConcreteConfigurator(BaseConfigurator):
                                                               'Заголовок графика'),
                 'xlabel': self.make_input_menu_structure('str', 'xlabel', 'Подпись оси X', 'Введите подпись для оси X'),
                 'ylabel': self.make_input_menu_structure('str', 'ylabel', 'Подпись оси Y', 'Введите подпись для оси Y'),
-                'back': {'title': 'Назад', 'command': 'back'}
+                'back': {'title': 'Назад', 'command': 'back'},
+                'finish': {'title': 'Готово', 'command': 'finish'}
             },
             'layout': [
                 ['bins', 'discrete'],
                 ['graph_title'],
                 ['xlabel'],
                 ['ylabel'],
-                ['back']
+                ['back'],
+                ['finish']
             ],
             'show_graph': True
         }
@@ -321,7 +348,7 @@ class ConcreteConfigurator(BaseConfigurator):
         is_current_page = self.menu_history[-1] == 'pie_submenu'
         structure = {
             'type': 'category',
-            'title': 'Настройки круговой диаграммы' if is_current_page else 'Далее',
+            'title': 'Дополнительно' if is_current_page else 'Далее',
             'items': {
                 'pie_group_percent': self.make_input_menu_structure('float', 'pie_group_percent',
                                                                     'Введите дробное число от 0 до 1',
@@ -330,13 +357,15 @@ class ConcreteConfigurator(BaseConfigurator):
                                                                  'Введите подпись для сгруппированных данных'),
                 'graph_title': self.make_input_menu_structure('str', 'graph_title', 'Введите заголовок графика',
                                                               'Заголовок графика'),
-                'back': {'title': 'Назад', 'command': 'back'}
+                'back': {'title': 'Назад', 'command': 'back'},
+                'finish': {'title': 'Готово', 'command': 'finish'}
             },
             'layout': [
                 ['pie_group_percent'],
                 ['pie_group_name'],
                 ['graph_title'],
-                ['back']
+                ['back'],
+                ['finish']
             ],
             'show_graph': True
         }
@@ -354,7 +383,7 @@ class ConcreteConfigurator(BaseConfigurator):
         current_value = self.config.get('x', None)
 
         if current_value is not None:
-            structure['title'] += ' (' + structure['items'][current_value]['title'] + ')'
+            structure['title'] += f" \n({structure['items'][current_value]['title']})"
 
         return structure
 
@@ -369,7 +398,7 @@ class ConcreteConfigurator(BaseConfigurator):
         current_value = self.config.get('y', None)
 
         if current_value is not None:
-            structure['title'] += ' (' + structure['items'][current_value]['title'] + ')'
+            structure['title'] += f" \n({structure['items'][current_value]['title']})"
 
         return structure
 
@@ -407,7 +436,7 @@ class ConcreteConfigurator(BaseConfigurator):
 
         current_value = self.config.get('group_by', None)
 
-        structure['title'] += ' (' + structure['items'][str(current_value)]['title'] + ')'
+        structure['title'] += f" \n({structure['items'][str(current_value)]['title']})"
 
         return structure
 
@@ -434,7 +463,7 @@ class ConcreteConfigurator(BaseConfigurator):
         current_value = self.config.get('agg', None)
 
         if current_value is not None:
-            structure['title'] += ' (' + structure['items'][str(current_value)]['title'] + ')'
+            structure['title'] += f" \n({structure['items'][str(current_value)]['title']})"
 
         return structure
 
@@ -458,7 +487,7 @@ class ConcreteConfigurator(BaseConfigurator):
 
         current_value = self.config.get('clean_outliers', None)
 
-        structure['title'] += ' (' + structure['items'][str(current_value)]['title'] + ')'
+        structure['title'] += f" \n({structure['items'][str(current_value)]['title']})"
 
         return structure
 
@@ -489,7 +518,7 @@ class ConcreteConfigurator(BaseConfigurator):
             structure['layout'].insert(0, x)
         current_value = self.config.get('sort_by', None)
 
-        structure['title'] += ' (' + structure['items'][str(current_value)]['title'] + ')'
+        structure['title'] += f" \n({structure['items'][str(current_value)]['title']})"
 
         return structure
 
@@ -515,7 +544,7 @@ class ConcreteConfigurator(BaseConfigurator):
         current_value = self.config.get('sort_type', None)
 
         if current_value is not None:
-            structure['title'] += ' (' + structure['items'][current_value]['title'] + ')'
+            structure['title'] += f" \n({structure['items'][current_value]['title']})"
 
         return structure
 
@@ -537,7 +566,7 @@ class ConcreteConfigurator(BaseConfigurator):
         current_value = self.config.get(id, None)
 
         if current_value is not None:
-            structure['title'] += ' (' + str(current_value) + ')'
+            structure['title'] += f" \n({str(current_value)})"
 
         return structure
 
@@ -560,7 +589,7 @@ class ConcreteConfigurator(BaseConfigurator):
         current_value = self.config.get('discrete', None)
 
         if current_value is not None:
-            structure['title'] += ' (' + structure['items'][str(current_value)]['title'] + ')'
+            structure['title'] += f" \n({structure['items'][str(current_value)]['title']})"
 
         return structure
 
