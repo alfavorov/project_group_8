@@ -112,6 +112,10 @@ class Main:
             bot.delete_message(user_id, users[user_id]['loading_message'].message_id)
             users[user_id]['loading_message'] = None
 
+        if users[user_id].get('error_message', None) is not None:
+            bot.delete_message(user_id, users[user_id]['error_message'].message_id)
+            users[user_id]['error_message'] = None
+
         if current_menu_page.get('show_graph', None) is not None:
             photo = self.make_graph_photo(user_id)
 
@@ -312,11 +316,19 @@ class Main:
 
 
             if users[user_id]['waiting_for_input'] == True:
-                users[user_id]['configurator'].update_menu_state(message.text)
-                users[user_id]['waiting_for_input'] = False
-                self.send_or_update(user_id)
                 bot.delete_message(user_id, msg_id)
+                # удаляю всегда, т. к. из-за ReplyKeyboardRemove проблема с редактированием простого текстового сообщения
+                # https://github.com/eternnoir/pyTelegramBotAPI/issues/1104
+                if users[user_id].get('error_message', None) is not None:
+                    bot.delete_message(user_id, users[user_id]['error_message'].message_id)
+                    users[user_id]['error_message'] = None
 
+                try:
+                    users[user_id]['configurator'].update_menu_state(message.text)
+                    users[user_id]['waiting_for_input'] = False
+                    self.send_or_update(user_id)
+                except Exception as err:
+                    users[user_id]['error_message'] = self.send_msg(f'Некоректный формат ввода ({message.text})', user_id)
 
         # Обработка команд (кнопок)
         @bot.callback_query_handler(func=lambda call: True)
