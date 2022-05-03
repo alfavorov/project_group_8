@@ -1,6 +1,7 @@
 class BaseConfigurator:
     def __init__(self, columns):
         self.columns = columns
+        self.commands = ['back', 'reset', 'finish']
         self.reset()
 
     def reset(self):
@@ -24,7 +25,7 @@ class BaseConfigurator:
         self.current_menu_page = current_menu_page
 
     def update_menu_state(self, value, command=None):
-        if command is not None:
+        if command in self.commands:
             self.call_command(command)
             return self.is_done, command
 
@@ -81,7 +82,10 @@ class BaseConfigurator:
         if value == 'None':
             value = None
         else:
-            value = int(value)
+            try:
+                value = int(value)
+            except ValueError:
+                raise ValueError(f'Значение "{value}" невозможно использовать как целое число')
 
         self.config[current_menu_page_id] = value
         self.go_back()
@@ -96,7 +100,10 @@ class BaseConfigurator:
         if value == 'None':
             value = None
         else:
-            value = str(value)
+            try:
+                value = str(value)
+            except ValueError:
+                raise ValueError(f'Значение "{value}" невозможно использовать как строку')
 
         self.config[current_menu_page_id] = value
         self.go_back()
@@ -111,7 +118,10 @@ class BaseConfigurator:
         if value == 'None':
             value = None
         else:
-            value = float(value)
+            try:
+                value = float(value)
+            except ValueError:
+                raise ValueError(f'Значение "{value}" невозможно использовать как дробное число')
 
         self.config[current_menu_page_id] = value
         self.go_back()

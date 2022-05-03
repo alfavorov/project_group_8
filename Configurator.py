@@ -16,6 +16,11 @@ class ConcreteConfigurator(BaseConfigurator):
         if current_menu_page_type == 'category' and current_menu_page_id == 'root':
             self.config = self.make_default_config(value)
 
+        if command == 'validate':
+            is_valid, error_text = self.validate(current_menu_page_id)
+            if is_valid is False:
+                raise ValueError(error_text)
+
         return super().update_menu_state(value, command)
 
     def make_default_config(self, graph_type):
@@ -27,6 +32,16 @@ class ConcreteConfigurator(BaseConfigurator):
             return self.make_pie_default_config()
         elif graph_type == 'scatter':
             return self.make_scatter_default_config()
+
+    def validate(self, graph_type):
+        if graph_type == 'bar':
+            return self.validate_bar()
+        elif graph_type == 'hist':
+            return self.validate_hist()
+        elif graph_type == 'pie':
+            return self.validate_pie()
+        elif graph_type == 'scatter':
+            return self.validate_scatter()
 
     def make_menu_structure(self):
         return {
@@ -99,7 +114,8 @@ class ConcreteConfigurator(BaseConfigurator):
                 ['back'],
                 ['finish']
             ],
-            'show_graph': True
+            'show_graph': True,
+            'command': 'validate'
         }
 
         return structure
@@ -145,7 +161,8 @@ class ConcreteConfigurator(BaseConfigurator):
                 ['back'],
                 ['finish']
             ],
-            'show_graph': True
+            'show_graph': True,
+            'command': 'validate'
         }
 
         return structure
@@ -190,7 +207,8 @@ class ConcreteConfigurator(BaseConfigurator):
                 ['back'],
                 ['finish']
             ],
-            'show_graph': True
+            'show_graph': True,
+            'command': 'validate'
         }
 
         return structure
@@ -236,7 +254,8 @@ class ConcreteConfigurator(BaseConfigurator):
                 ['back'],
                 ['finish']
             ],
-            'show_graph': True
+            'show_graph': True,
+            'command': 'validate'
         }
 
         return structure
@@ -545,3 +564,24 @@ class ConcreteConfigurator(BaseConfigurator):
                 self.config['agg'] = None if y_value == '$count_x_values' else current_agg_value
 
         super().select(value)
+
+    def validate_bar(self):
+        if self.config['x'] == self.config['y']:
+            return False, 'Колонка X не должна быть равна колонке Y'
+
+        return True, None
+
+    def validate_hist(self):
+        return True, None
+
+    def validate_pie(self):
+        if self.config['x'] == self.config['y']:
+            return False, 'Признак деления не должен быть равен значению'
+
+        return True, None
+
+    def validate_scatter(self):
+        if self.config['x'] == self.config['y']:
+            return False, 'Колонка X не должна быть равна колонке Y'
+
+        return True, None
