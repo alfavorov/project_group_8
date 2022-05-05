@@ -305,7 +305,7 @@ class Main:
                         cur_file = self.user_dir(user_id) + '/' + str(msg_mtm)
 
                     users[user_id]['df_container'] = DataFrameContainer(cur_file)
-                    users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
+                    users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'])
                     users[user_id]['configurator'].set_file_name(msg_mtm)
 
                     users[user_id]['state'] = 1
@@ -393,7 +393,7 @@ class Main:
                         self.send_msg('Успешно!', message.from_user.id)
                         cur_file = src
                         users[user_id]['df_container'] = DataFrameContainer(cur_file)
-                        users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
+                        users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'])
                         users[user_id]['configurator'].set_file_name(file_name)
 
                         users[user_id]['state'] = 1

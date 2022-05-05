@@ -1,9 +1,13 @@
 from BaseConfigurator import BaseConfigurator
+from pandas.api.types import is_numeric_dtype
 
 class ConcreteConfigurator(BaseConfigurator):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, df_container):
+        self.df_container = df_container
+        self.columns = df_container.get_columns()
         self.file_name = None
-        super().__init__(*args, **kwargs)
+        super().__init__()
+        self.commands.append('change_file')
 
     def set_file_name(self, file_name):
         self.file_name = file_name
@@ -543,13 +547,13 @@ class ConcreteConfigurator(BaseConfigurator):
             current_agg_value = self.config.get('agg', None)
             current_agg_value = 'mean' if current_agg_value is None else current_agg_value
 
-            self.config['agg'] = None if self.config[current_menu_page_id] is None else current_agg_value
+            self.config['agg'] = None if value is None else current_agg_value
 
         if current_menu_page_id == 'sort_by':
             current_sort_type_value = self.config.get('sort_type', None)
             current_sort_type_value = 'ascending' if current_sort_type_value is None else current_sort_type_value
 
-            self.config['sort_type'] = None if self.config[current_menu_page_id] is None else current_sort_type_value
+            self.config['sort_type'] = None if value is None else current_sort_type_value
 
         if self.config.get('graph_type', None) == 'pie':
             if current_menu_page_id == 'x' or current_menu_page_id == 'y':
@@ -566,21 +570,48 @@ class ConcreteConfigurator(BaseConfigurator):
         super().select(value)
 
     def validate_bar(self):
+        if self.config['x'] is None:
+            return False, 'Выберите колонку X'
+            
+        if self.config['y'] is None:
+            return False, 'Выберите колонку Y'
+
         if self.config['x'] == self.config['y']:
             return False, 'Колонка X не должна быть равна колонке Y'
+
+        if self.config['group_by'] is not None:
+            aggregated_col = self.config['x'] if self.config['group_by'] == self.config['y'] else self.config['y']
+
+            if not is_numeric_dtype(self.df_container.dataframe[aggregated_col]):
+                return False, 'Применить агрегацию к полю не числового типа невозможно.'
 
         return True, None
 
     def validate_hist(self):
+        if self.config['x'] is None:
+            return False, 'Выберите колонку X'
+
         return True, None
 
     def validate_pie(self):
+        if self.config['x'] is None:
+            return False, 'Выберите колонку X'
+            
+        if self.config['y'] is None:
+            return False, 'Выберите колонку Y'
+        
         if self.config['x'] == self.config['y']:
             return False, 'Признак деления не должен быть равен значению'
 
         return True, None
 
     def validate_scatter(self):
+        if self.config['x'] is None:
+            return False, 'Выберите колонку X'
+            
+        if self.config['y'] is None:
+            return False, 'Выберите колонку Y'
+
         if self.config['x'] == self.config['y']:
             return False, 'Колонка X не должна быть равна колонке Y'
 
