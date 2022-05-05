@@ -105,7 +105,7 @@ class Main:
         last_message = users[user_id]['last_message']
         last_photo_message = users[user_id]['last_photo_message']
         current_menu_page = configurator.current_menu_page
-        text = current_menu_page['title'] + ';'
+        text = current_menu_page['title'] + ':'
         photo = None
         reply_markup = self.generate_buttons(current_menu_page.get('items', []), current_menu_page.get('layout', []))
 
