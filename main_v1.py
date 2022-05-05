@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 from GraphVisualizer import GraphVisualizer
 from DataFrameContainer import DataFrameContainer
 from Configurator import ConcreteConfigurator
@@ -111,6 +112,10 @@ class Main:
         if users[user_id].get('loading_message', None) is not None:
             bot.delete_message(user_id, users[user_id]['loading_message'].message_id)
             users[user_id]['loading_message'] = None
+
+        if users[user_id].get('error_message', None) is not None:
+            bot.delete_message(user_id, users[user_id]['error_message'].message_id)
+            users[user_id]['error_message'] = None
 
         if current_menu_page.get('show_graph', None) is not None:
             photo = self.make_graph_photo(user_id)
@@ -300,7 +305,7 @@ class Main:
                         cur_file = self.user_dir(user_id) + '/' + str(msg_mtm)
 
                     users[user_id]['df_container'] = DataFrameContainer(cur_file)
-                    users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
+                    users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'])
                     users[user_id]['configurator'].set_file_name(msg_mtm)
 
                     users[user_id]['state'] = 1
@@ -312,32 +317,50 @@ class Main:
 
 
             if users[user_id]['waiting_for_input'] == True:
-                users[user_id]['configurator'].update_menu_state(message.text)
-                users[user_id]['waiting_for_input'] = False
-                self.send_or_update(user_id)
                 bot.delete_message(user_id, msg_id)
+                # удаляю всегда, т. к. из-за ReplyKeyboardRemove проблема с редактированием простого текстового сообщения
+                # https://github.com/eternnoir/pyTelegramBotAPI/issues/1104
+                if users[user_id].get('error_message', None) is not None:
+                    bot.delete_message(user_id, users[user_id]['error_message'].message_id)
+                    users[user_id]['error_message'] = None
 
+                try:
+                    users[user_id]['configurator'].update_menu_state(message.text)
+                    users[user_id]['waiting_for_input'] = False
+                    self.send_or_update(user_id)
+                except ValueError as err:
+                    users[user_id]['error_message'] = self.send_msg(str(err), user_id)
 
         # Обработка команд (кнопок)
         @bot.callback_query_handler(func=lambda call: True)
         def get_callback(call):
             user_id = call.from_user.id
+            selected_data = json.loads(call.data)
+            is_done = None
+            command = None
+
+            if users[user_id].get('error_message', None) is not None:
+                bot.delete_message(user_id, users[user_id]['error_message'].message_id)
+                users[user_id]['error_message'] = None
+
             try:
-                selected_data = json.loads(call.data)
-
                 is_done, command = users[user_id]['configurator'].update_menu_state(selected_data['value'], selected_data['command'])
-
-                if is_done:
-                    self.next_graph(user_id)
-                elif command == 'change_file':
-                    self.start(user_id)
-                else:
-                    bot.edit_message_text(users[user_id]['last_message'].text + ' обработка...', user_id,
-                                          users[user_id]['last_message'].message_id)
-                    self.send_or_update(user_id)
- 
+            except ValueError as err:
+                self.log_w(user_id, 'get_callback_value_error', err)
+                users[user_id]['error_message'] = self.send_msg(str(err), user_id)
+                return
             except Exception as err:
-                self.log_w(user_id, 'get_callback', err)
+                self.log_w(user_id, 'get_callback_other', err)
+                return
+
+            if is_done:
+                self.next_graph(user_id)
+            elif command == 'change_file':
+                self.start(user_id)
+            else:
+                bot.edit_message_text(users[user_id]['last_message'].text + ' обработка...', user_id,
+                                        users[user_id]['last_message'].message_id)
+                self.send_or_update(user_id)
 
         # Обработка присланных файлов
         @bot.message_handler(content_types=['document'])
@@ -370,7 +393,7 @@ class Main:
                         self.send_msg('Успешно!', message.from_user.id)
                         cur_file = src
                         users[user_id]['df_container'] = DataFrameContainer(cur_file)
-                        users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'].get_columns())
+                        users[user_id]['configurator'] = ConcreteConfigurator(users[user_id]['df_container'])
                         users[user_id]['configurator'].set_file_name(file_name)
 
                         users[user_id]['state'] = 1
@@ -404,6 +427,6 @@ class Main:
 if __name__ == '__main__':
     interface = Main(token)
 
-    interface.log_w(111, '323232323')
+    interface.log_w(None, '__main__', 'Server started')
 
     interface.run_bot()

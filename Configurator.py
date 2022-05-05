@@ -1,140 +1,13 @@
-class BaseConfigurator:
-    def __init__(self, columns):
-        self.columns = columns
-        self.reset()
-
-    def reset(self):
-        self.config = dict()
-        self.soft_reset()
-
-    def soft_reset(self):
-        self.is_done = False
-        self.menu_history = ['root']
-        self.current_menu_page = None
-        self.update_menu_structure()
-
-    def update_menu_structure(self):
-        self.menu_structure = self.make_menu_structure()
-
-        current_menu_page = self.menu_structure
-
-        for page in self.menu_history:
-            current_menu_page = current_menu_page['items'][page]
-
-        self.current_menu_page = current_menu_page
-
-    def update_menu_state(self, value, command=None):
-        if command is not None:
-            self.call_command(command)
-            return self.is_done, command
-
-        page_type = self.current_menu_page.get('type', None)
-
-        if page_type == 'category':
-            self.menu_history.append(value)
-            self.update_menu_structure()
-        elif page_type == 'select':
-            self.select(value)
-        elif page_type == 'int':
-            self.set_int(value)
-        elif page_type == 'float':
-            self.set_float(value)
-        elif page_type == 'str':
-            self.set_str(value)
-
-        return self.is_done, command
-
-    def call_command(self, command):
-        if command == 'back':
-            self.go_back()
-        elif command == 'reset':
-            self.reset()
-        elif command == 'finish':
-            self.finish()
-
-    def finish(self):
-        self.is_done = True
-
-    def select(self, value):
-        current_item = self.menu_history[-1]
-
-        if value == 'None':
-            value = None
-
-        if value == 'True':
-            value = True
-
-        if value == 'False':
-            value = False
-
-        self.config[current_item] = value
-
-        self.go_back()
-
-    def set_int(self, value):
-        current_menu_page_id = self.menu_history[-1]
-        current_menu_page_type = self.current_menu_page.get('type', None)
-
-        if current_menu_page_type != 'int':
-            raise TypeError('TODO')
-
-        if value == 'None':
-            value = None
-        else:
-            value = int(value)
-
-        self.config[current_menu_page_id] = value
-        self.go_back()
-
-    def set_str(self, value):
-        current_menu_page_id = self.menu_history[-1]
-        current_menu_page_type = self.current_menu_page.get('type', None)
-
-        if current_menu_page_type != 'str':
-            raise TypeError('TODO')
-
-        if value == 'None':
-            value = None
-        else:
-            value = str(value)
-
-        self.config[current_menu_page_id] = value
-        self.go_back()
-
-    def set_float(self, value):
-        current_menu_page_id = self.menu_history[-1]
-        current_menu_page_type = self.current_menu_page.get('type', None)
-
-        if current_menu_page_type != 'float':
-            raise TypeError('TODO')
-
-        if value == 'None':
-            value = None
-        else:
-            value = float(value)
-
-        self.config[current_menu_page_id] = value
-        self.go_back()
-
-    def go_back(self):
-        if len(self.menu_history) > 1:
-            self.menu_history.pop()
-            self.update_menu_structure()
-
-    def make_menu_structure(self):
-        return {
-            'items': {
-                'root': {
-                    'items': []
-                }
-            }
-        }
-
+from BaseConfigurator import BaseConfigurator
+from pandas.api.types import is_numeric_dtype
 
 class ConcreteConfigurator(BaseConfigurator):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, df_container):
+        self.df_container = df_container
+        self.columns = df_container.get_columns()
         self.file_name = None
-        super().__init__(*args, **kwargs)
+        super().__init__()
+        self.commands.append('change_file')
 
     def set_file_name(self, file_name):
         self.file_name = file_name
@@ -147,6 +20,11 @@ class ConcreteConfigurator(BaseConfigurator):
         if current_menu_page_type == 'category' and current_menu_page_id == 'root':
             self.config = self.make_default_config(value)
 
+        if command == 'validate':
+            is_valid, error_text = self.validate(current_menu_page_id)
+            if is_valid is False:
+                raise ValueError(error_text)
+
         return super().update_menu_state(value, command)
 
     def make_default_config(self, graph_type):
@@ -158,6 +36,16 @@ class ConcreteConfigurator(BaseConfigurator):
             return self.make_pie_default_config()
         elif graph_type == 'scatter':
             return self.make_scatter_default_config()
+
+    def validate(self, graph_type):
+        if graph_type == 'bar':
+            return self.validate_bar()
+        elif graph_type == 'hist':
+            return self.validate_hist()
+        elif graph_type == 'pie':
+            return self.validate_pie()
+        elif graph_type == 'scatter':
+            return self.validate_scatter()
 
     def make_menu_structure(self):
         return {
@@ -230,7 +118,8 @@ class ConcreteConfigurator(BaseConfigurator):
                 ['back'],
                 ['finish']
             ],
-            'show_graph': True
+            'show_graph': True,
+            'command': 'validate'
         }
 
         return structure
@@ -276,7 +165,8 @@ class ConcreteConfigurator(BaseConfigurator):
                 ['back'],
                 ['finish']
             ],
-            'show_graph': True
+            'show_graph': True,
+            'command': 'validate'
         }
 
         return structure
@@ -321,7 +211,8 @@ class ConcreteConfigurator(BaseConfigurator):
                 ['back'],
                 ['finish']
             ],
-            'show_graph': True
+            'show_graph': True,
+            'command': 'validate'
         }
 
         return structure
@@ -367,7 +258,8 @@ class ConcreteConfigurator(BaseConfigurator):
                 ['back'],
                 ['finish']
             ],
-            'show_graph': True
+            'show_graph': True,
+            'command': 'validate'
         }
 
         return structure
@@ -655,13 +547,13 @@ class ConcreteConfigurator(BaseConfigurator):
             current_agg_value = self.config.get('agg', None)
             current_agg_value = 'mean' if current_agg_value is None else current_agg_value
 
-            self.config['agg'] = None if self.config[current_menu_page_id] is None else current_agg_value
+            self.config['agg'] = None if value is None else current_agg_value
 
         if current_menu_page_id == 'sort_by':
             current_sort_type_value = self.config.get('sort_type', None)
             current_sort_type_value = 'ascending' if current_sort_type_value is None else current_sort_type_value
 
-            self.config['sort_type'] = None if self.config[current_menu_page_id] is None else current_sort_type_value
+            self.config['sort_type'] = None if value is None else current_sort_type_value
 
         if self.config.get('graph_type', None) == 'pie':
             if current_menu_page_id == 'x' or current_menu_page_id == 'y':
@@ -676,3 +568,51 @@ class ConcreteConfigurator(BaseConfigurator):
                 self.config['agg'] = None if y_value == '$count_x_values' else current_agg_value
 
         super().select(value)
+
+    def validate_bar(self):
+        if self.config['x'] is None:
+            return False, 'Выберите колонку X'
+            
+        if self.config['y'] is None:
+            return False, 'Выберите колонку Y'
+
+        if self.config['x'] == self.config['y']:
+            return False, 'Колонка X не должна быть равна колонке Y'
+
+        if self.config['group_by'] is not None:
+            aggregated_col = self.config['x'] if self.config['group_by'] == self.config['y'] else self.config['y']
+
+            if not is_numeric_dtype(self.df_container.dataframe[aggregated_col]):
+                return False, 'Применить агрегацию к полю не числового типа невозможно.'
+
+        return True, None
+
+    def validate_hist(self):
+        if self.config['x'] is None:
+            return False, 'Выберите колонку X'
+
+        return True, None
+
+    def validate_pie(self):
+        if self.config['x'] is None:
+            return False, 'Выберите колонку X'
+            
+        if self.config['y'] is None:
+            return False, 'Выберите колонку Y'
+        
+        if self.config['x'] == self.config['y']:
+            return False, 'Признак деления не должен быть равен значению'
+
+        return True, None
+
+    def validate_scatter(self):
+        if self.config['x'] is None:
+            return False, 'Выберите колонку X'
+            
+        if self.config['y'] is None:
+            return False, 'Выберите колонку Y'
+
+        if self.config['x'] == self.config['y']:
+            return False, 'Колонка X не должна быть равна колонке Y'
+
+        return True, None
