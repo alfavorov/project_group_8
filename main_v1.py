@@ -427,6 +427,6 @@ class Main:
 if __name__ == '__main__':
     interface = Main(token)
 
-    interface.log_w(111, '323232323')
+    interface.log_w(None, '__main__', 'Server started')
 
     interface.run_bot()
