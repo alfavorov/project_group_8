@@ -1,14 +1,10 @@
 class BaseConfigurator:
-    def __init__(self, columns):
-        self.columns = columns
+    def __init__(self):
         self.commands = ['back', 'reset', 'finish']
         self.reset()
 
     def reset(self):
         self.config = dict()
-        self.soft_reset()
-
-    def soft_reset(self):
         self.is_done = False
         self.menu_history = ['root']
         self.current_menu_page = None
