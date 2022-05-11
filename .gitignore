@@ -3,3 +3,4 @@
 /test_data/kiva_loans.csv
 /data/*
 __pycache__
+log.txt
