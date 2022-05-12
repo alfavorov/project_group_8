@@ -1,4 +1,3 @@
-from multiprocessing.sharedctypes import Value
 from GraphVisualizer import GraphVisualizer
 from DataFrameContainer import DataFrameContainer
 from Configurator import ConcreteConfigurator
@@ -6,14 +5,13 @@ from typing import Any
 
 # Инициализация бота
 import telebot, os, json, requests, datetime
-from telebot.types import KeyboardButton, ReplyKeyboardRemove, InputMediaPhoto
+from telebot.types import KeyboardButton, ReplyKeyboardRemove
 
 from tg_token import token
 
 
 
 class Main:
-
     def __init__(self, token: str) -> None:
         self.tg_token = token
         self.tg_bot = telebot.TeleBot(token)
@@ -23,7 +21,7 @@ class Main:
         try:
             os.mkdir(self.main_dir)
         except Exception as err:
-            self.log_w(None, '__init__',  err)
+            self.log_w(-1, '__init__',  err)
 
     def log_w(self, user_id: int, function: str, txt: Any) -> None:
         ''' Фукнкция записи логов '''
