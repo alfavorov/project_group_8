@@ -2,6 +2,7 @@ from multiprocessing.sharedctypes import Value
 from GraphVisualizer import GraphVisualizer
 from DataFrameContainer import DataFrameContainer
 from Configurator import ConcreteConfigurator
+from typing import Any
 
 # Инициализация бота
 import telebot, os, json, requests, datetime
@@ -24,14 +25,18 @@ class Main:
         except Exception as err:
             self.log_w(None, '__init__',  err)
 
-    def log_w(self, user_id, function, txt: str):
+    def log_w(self, user_id: int, function: str, txt: Any) -> None:
+        ''' Фукнкция записи логов '''
         msg = f'{str(datetime.datetime.now())}, {function}, {user_id}: {txt}\n'
         with open('log.txt', 'a') as f:
             f.write(msg)
 
 
     def generate_button(self, value, data):
-        if data is None: return
+        ''' Создание одной инлайн кнопки для бота '''
+
+        if data is None:
+            return
 
         return telebot.types.InlineKeyboardButton(
             data['title'],
@@ -39,6 +44,8 @@ class Main:
         )
 
     def generate_buttons(self, items, layout):
+        ''' Генерация нескольких инлайн кнопок '''
+
         markup = telebot.types.InlineKeyboardMarkup()
 
         for row in layout:
@@ -50,11 +57,13 @@ class Main:
 
         return markup
 
-    def user_dir(self, user_id):
+    def user_dir(self, user_id: int) -> str:
+        ''' Возвращает путь к директории конкретного пользователя '''
         return f'{self.main_dir}{user_id}/'
 
-    def get_users_files(self, user_id: int):
+    def get_users_files(self, user_id: int) -> dict:
         ''' Получение списка файлов, загруженных пользователем '''
+
         user_files_path = self.user_dir(user_id)
 
         try:
@@ -86,7 +95,7 @@ class Main:
         return keyboard
 
     def send_msg(self, data, user_id: int, keybord=None, markdown=False):
-        ''' Отправить сообщение '''
+        ''' Отправить сообщение пользователю. '''
 
         if type(data) != str:
             data = '\n'.join(data)
@@ -97,7 +106,9 @@ class Main:
                                  parse_mode='Markdown' if markdown else None,
                                  )
 
-    def show_menu(self, user_id):
+    def show_menu(self, user_id: int) -> None:
+        ''' Создает сообщение с кнопками меню, обноляет сообщение.  '''
+
         bot = self.tg_bot
 
         users = self.tg_users
@@ -151,7 +162,10 @@ class Main:
         users[user_id]['last_photo_message'] = last_photo_message
         users[user_id]['waiting_for_input'] = configurator_wait_input
 
-    def make_graph_photo(self, user_id):
+    def make_graph_photo(self, user_id: int) -> str:
+        ''' Создает файл графика, указанного в конфигураторе, сохраняет его в файл
+         и возвращает путь к файлу. '''
+
         data = None
         figure = None
         photo = None
@@ -183,7 +197,8 @@ class Main:
 
         return photo
 
-    def send_or_update(self, user_id):
+    def send_or_update(self, user_id: int):
+        ''' Обновляет меню или создает новое, если работа с предыдущим графиком зваершена. '''
         users = self.tg_users
         bot = self.tg_bot
 
@@ -238,7 +253,8 @@ class Main:
 
         self.send_msg(reply_msg, user_id, users_files['keybord'])
 
-    def next_graph(self, user_id):
+    def next_graph(self, user_id: int):
+        ''' Создает новый график '''
         bot = self.tg_bot
         users = self.tg_users
 
@@ -411,11 +427,8 @@ class Main:
 
     def run_bot(self) -> None:
         ''' Запусить бот '''
-        # дважды стартуешь бота?
         self.processing()
-        # self.tg_bot.polling(none_stop=True)
 
-        # вот тут второй раз в отдельном потоке?
         def th():
             self.tg_bot.polling(none_stop=True)
 
@@ -427,6 +440,6 @@ class Main:
 if __name__ == '__main__':
     interface = Main(token)
 
-    interface.log_w(None, '__main__', 'Server started')
+    interface.log_w(-1, '__main__', 'Server started')
 
     interface.run_bot()
